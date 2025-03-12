@@ -26,8 +26,9 @@ class MainActivity : AppCompatActivity() {
     private var dataDefList = ArrayList<String>(); // data
     private var wordDefinition = mutableListOf<WordDefinition>();
     private var score : Int = 1;
-    private var totalCorrect : Int = 2;
-    private var totalWrong : Int = 3;
+    private var streak : Int = 2;
+    private var totalCorrect : Int = 3;
+    private var totalWrong : Int = 4;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,6 +129,7 @@ class MainActivity : AppCompatActivity() {
     {
         var myIntent = Intent(this, StatsActivity::class.java);
         myIntent.putExtra("score", score.toString());
+        myIntent.putExtra("streak", streak.toString());
         myIntent.putExtra("totalCorrect", totalCorrect.toString());
         myIntent.putExtra("totalWrong", totalWrong.toString());
         startActivity(myIntent)
@@ -138,4 +140,25 @@ class MainActivity : AppCompatActivity() {
         var myIntent = Intent(this, AddWordActivity::class.java);
         startActivityForResult(myIntent, ADD_WORD_CODE)
     }
+
+    fun streak(view : View)
+    {
+        val correctAnswer = wordDefinition[0].definition
+
+        val clickedDefinition = dataDefList[view.tag as Int]
+
+        if(clickedDefinition == correctAnswer) {
+            streak++
+            totalCorrect++
+            score += streak
+        } else {
+            streak = 0
+            totalWrong++
+
+        }
+
+        pickNewWordAndLoadDataList()
+        myAdapter.notifyDataSetChanged()
+    }
+
 }
