@@ -18,7 +18,7 @@ import java.io.FileInputStream
 import java.util.Random
 import java.util.Scanner
 
-data class WordDefinition(val word: String, val definition: String);
+data class WordDefinition(val word: String, val definition: String, var correctStreak: Int = 0);
 
 class MainActivity : AppCompatActivity() {
     private val ADD_WORD_CODE = 1234; // 1-65535
@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-
+        loadStatsFromDisk()
         loadWordsFromDisk()
 
         pickNewWordAndLoadDataList();
@@ -51,7 +51,11 @@ class MainActivity : AppCompatActivity() {
             myAdapter.notifyDataSetChanged();
         };
     }
+    override fun onDestroy(){
+        super.onDestroy()
 
+        saveStatsToFile()
+    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -66,13 +70,20 @@ class MainActivity : AppCompatActivity() {
             if ( word == "" || def == "")
                 return
 
+            saveWordToFile(word, def, correctStreak = 0)
+
             wordDefinition.add(WordDefinition(word, def))
 
             pickNewWordAndLoadDataList()
             myAdapter.notifyDataSetChanged()
         }
     }
+    private fun saveWordToFile(word: String, def: String, correctStreak: Int){
+        val file = File(applicationContext.filesDir, "user_data.csv")
+        file.appendText("$word|$def|$correctStreak\n")
 
+
+    }
     private fun loadWordsFromDisk()
     {
         // user data
@@ -85,7 +96,7 @@ class MainActivity : AppCompatActivity() {
             while(scanner.hasNextLine()){
                 val line = scanner.nextLine()
                 val wd = line.split("|")
-                wordDefinition.add(WordDefinition(wd[0], wd[1]))
+                wordDefinition.add(WordDefinition(wd[0], wd[1], wd[2].toIntOrNull() ?:0))
             }
         } else { // default data
 
@@ -96,19 +107,54 @@ class MainActivity : AppCompatActivity() {
                 val line = reader.nextLine()
                 val wd = line.split("|")
                 wordDefinition.add(WordDefinition(wd[0], wd[1]))
-                file.appendText("${wd[0]}|${wd[1]}\n")
+                file.appendText("${wd[0]}|${wd[1]}|${wd[2]}\n")
+            }
+        }
+    }
+    private fun saveStatsToFile(){
+        val file = File(applicationContext.filesDir, "user_stats.csv")
+
+        file.writeText("score=$score\n")
+        file.writeText("streak=$streak\n")
+        file.writeText("totalCorrect=$totalCorrect\n")
+        file.writeText("totalWrong=$totalWrong\n")
+
+    }
+    private fun loadStatsFromDisk() {
+        val file = File(applicationContext.filesDir, "user_stats.csv")
+
+        if (file.exists()) {
+            val scanner = Scanner(file)
+
+            while (scanner.hasNextLine()) {
+                val line = scanner.nextLine()
+                val parts = line.split("=")
+
+                if (parts.size == 2) {
+                    when (parts[0]) {
+                        "score" -> score = parts[1].toIntOrNull() ?: 0
+                        "streak" -> streak = parts[1].toIntOrNull() ?: 0
+                        "totalCorrect" -> totalCorrect = parts[1].toIntOrNull() ?: 0
+                        "totalWrong" -> totalWrong = parts[1].toIntOrNull() ?: 0
+                    }
+
+                }
             }
         }
     }
 
     private fun pickNewWordAndLoadDataList()
     {
+        wordDefinition.sortBy{ it.correctStreak}
         wordDefinition.shuffle();
 
         dataDefList.clear();
 
         for(wd in wordDefinition){
             dataDefList.add(wd.definition);
+        }
+        for (i in 0 until minOf(4, wordDefinition.size)){
+            dataDefList.add(wordDefinition[i].definition)
         }
 
         findViewById<TextView>(R.id.word).text = wordDefinition[0].word;
@@ -147,18 +193,37 @@ class MainActivity : AppCompatActivity() {
 
         val clickedDefinition = dataDefList[view.tag as Int]
 
+        val word = wordDefinition[0]
+
         if(clickedDefinition == correctAnswer) {
+            word.correctStreak++
             streak++
             totalCorrect++
             score += streak
         } else {
+            word.correctStreak = 0
             streak = 0
             totalWrong++
 
         }
+        saveStatsToFile()
+        updateStats()
 
         pickNewWordAndLoadDataList()
         myAdapter.notifyDataSetChanged()
     }
+    private fun saveAllWordsToFile(){
+        val file = File(applicationContext.filesDir, "user_data.csv")
+        file.writeText("")
+        for (wd in wordDefinition){
+            saveWordToFile(wd.word, wd.definition, wd.correctStreak)
+        }
+    }
+    private fun updateStats(){
+    val scoreText = findViewById<TextView>(R.id.score_text)
+    val streakText = findViewById<TextView>(R.id.streak_text)
 
+    scoreText.text = "score: $score"
+    streakText.text = "streak: $streak"
+   }
 }
