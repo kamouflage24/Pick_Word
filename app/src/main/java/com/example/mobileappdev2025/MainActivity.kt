@@ -25,10 +25,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var myAdapter : ArrayAdapter<String>; // connect from data to gui
     private var dataDefList = ArrayList<String>(); // data
     private var wordDefinition = mutableListOf<WordDefinition>();
-    private var score : Int = 1;
-    private var streak : Int = 2;
-    private var totalCorrect : Int = 3;
-    private var totalWrong : Int = 4;
+    private var score : Int = 0;
+    private var streak : Int = 0;
+    private var totalCorrect : Int = 0;
+    private var totalWrong : Int = 0;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,21 +41,21 @@ class MainActivity : AppCompatActivity() {
         }
         loadStatsFromDisk()
         loadWordsFromDisk()
+        saveStatsToFile()
+        saveAllWordsToFile()
 
-        pickNewWordAndLoadDataList();
         setupList();
 
         val defList = findViewById<ListView>(R.id.dynamic_def_list);
-        defList.setOnItemClickListener { _, _, index, _ ->
+        defList.setOnItemClickListener { _, view, position, _ ->
+            view.tag = position
+            streak(view)
             pickNewWordAndLoadDataList();
             myAdapter.notifyDataSetChanged();
         };
     }
-    override fun onDestroy(){
-        super.onDestroy()
 
-        saveStatsToFile()
-    }
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -143,23 +143,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun pickNewWordAndLoadDataList()
-    {
-        wordDefinition.sortBy{ it.correctStreak}
+    private fun pickNewWordAndLoadDataList() {
+        wordDefinition.sortBy { it.correctStreak }
         wordDefinition.shuffle();
 
-        dataDefList.clear();
-
-        for(wd in wordDefinition){
-            dataDefList.add(wd.definition);
+        val currentWord = wordDefinition[0]
+        val possibleDefinitions = mutableListOf<String>()
+        possibleDefinitions.add(currentWord.definition)
+        while (possibleDefinitions.size < 4) {
+            val randomDefinition = wordDefinition.random().definition
+            if (!possibleDefinitions.contains(randomDefinition)) {
+                possibleDefinitions.add(randomDefinition)
+            }
         }
-        for (i in 0 until minOf(4, wordDefinition.size)){
-            dataDefList.add(wordDefinition[i].definition)
-        }
-
-        findViewById<TextView>(R.id.word).text = wordDefinition[0].word;
-
-        dataDefList.shuffle();
+        possibleDefinitions.shuffle()
+        dataDefList.clear()
+        dataDefList.addAll(possibleDefinitions)
+        findViewById<TextView>(R.id.word).text = currentWord.word
+        // currentCorrectAnswer = currentWord.definition
+        findViewById<TextView>(R.id.word).text = currentWord.word
     }
 
     private fun setupList()
@@ -189,25 +191,34 @@ class MainActivity : AppCompatActivity() {
 
     fun streak(view : View)
     {
-        val correctAnswer = wordDefinition[0].definition
+        val position = view.tag as? Int
 
-        val clickedDefinition = dataDefList[view.tag as Int]
+        if (position != null && position >= 0 && position < dataDefList.size){
+            val correctAnswer = wordDefinition[0].definition
 
-        val word = wordDefinition[0]
+            val clickedDefinition = dataDefList[view.tag as Int]
 
-        if(clickedDefinition == correctAnswer) {
-            word.correctStreak++
-            streak++
-            totalCorrect++
-            score += streak
-        } else {
-            word.correctStreak = 0
-            streak = 0
-            totalWrong++
+            val word = wordDefinition[0]
+
+            if(clickedDefinition == correctAnswer) {
+                word.correctStreak +=1
+                streak+=1
+                totalCorrect+=1
+                score += streak
+                val streakText = findViewById<TextView>(R.id.streak_text)
+                streakText.text = "streak: $streak"
+            } else {
+                word.correctStreak += 0
+                streak += 0
+                totalWrong += 1
+
+            }
+
+
 
         }
         saveStatsToFile()
-        updateStats()
+        // updateStats()
 
         pickNewWordAndLoadDataList()
         myAdapter.notifyDataSetChanged()
@@ -219,11 +230,13 @@ class MainActivity : AppCompatActivity() {
             saveWordToFile(wd.word, wd.definition, wd.correctStreak)
         }
     }
-    private fun updateStats(){
-    val scoreText = findViewById<TextView>(R.id.score_text)
-    val streakText = findViewById<TextView>(R.id.streak_text)
-
-    scoreText.text = "score: $score"
-    streakText.text = "streak: $streak"
-   }
+    //private fun updateStats(){
+    //val scoreText = findViewById<TextView>(R.id.score_text)
+    //val streakText = findViewById<TextView>(R.id.streak_text)
+    // val totalCorrectText = findViewById<TextView>(R.id.correct_text)
+    //    val totalWrongText = findViewById<TextView>(R.id.wrong_text)
+    // scoreText.text = "score: $score"
+    //streakText.text = "streak: $streak"
+    //totalCorrectText.text = "Correct count: $totalCorrect"
+    //totalWrongText.text = "incorrect count: $totalWrong"
 }
